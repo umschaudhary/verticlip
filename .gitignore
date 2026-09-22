@@ -1,0 +1,18 @@
+.env
+.venv/
+secrets/
+data/
+__pycache__/
+*.pyc
+campaigns/*/footage/
+tests/fixtures/
+
+# personal working campaigns — only campaigns/example ships
+campaigns/*/
+!campaigns/example/
+!campaigns/_test-campaign/
+
+# rendered samples contain third-party footage
+caption-samples/*.mp4
+.DS_Store
+*.bak

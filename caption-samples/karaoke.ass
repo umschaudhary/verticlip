@@ -1,0 +1,38 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Cap,Montserrat Black,78,&H00FFFFFF,&H00FFFFFF,&H00000000,&HC0000000,-1,0,0,0,100,100,0,0,1,4,3,5,60,60,0,1
+Style: Hook,Montserrat Black,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,-1,0,0,0,100,100,0,0,3,10,0,8,80,80,307,1
+Style: Credit,Montserrat Black,37,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,60,60,172,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.26,0:00:00.48,Cap,,0,0,0,,{\an5\pos(540,1305)\fad(70,50)}{\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}MY{\1c&HFFFFFF&\3c&H000000&\blur0} WINDOW AND,
+Dialogue: 0,0:00:00.48,0:00:00.80,Cap,,0,0,0,,{\an5\pos(540,1305)}MY {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}WINDOW{\1c&HFFFFFF&\3c&H000000&\blur0} AND,
+Dialogue: 0,0:00:00.80,0:00:01.32,Cap,,0,0,0,,{\an5\pos(540,1305)}MY WINDOW {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}AND,{\1c&HFFFFFF&\3c&H000000&\blur0}
+Dialogue: 0,0:00:01.26,0:00:01.88,Cap,,0,0,0,,{\an5\pos(540,1305)\fad(70,50)}{\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}YOU{\1c&HFFFFFF&\3c&H000000&\blur0} KNOW, FORGOT
+Dialogue: 0,0:00:01.88,0:00:02.04,Cap,,0,0,0,,{\an5\pos(540,1305)}YOU {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}KNOW,{\1c&HFFFFFF&\3c&H000000&\blur0} FORGOT
+Dialogue: 0,0:00:02.04,0:00:02.32,Cap,,0,0,0,,{\an5\pos(540,1305)}YOU KNOW, {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}FORGOT{\1c&HFFFFFF&\3c&H000000&\blur0}
+Dialogue: 0,0:00:02.20,0:00:02.48,Cap,,0,0,0,,{\an5\pos(540,1305)\fad(70,50)}{\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}MY{\1c&HFFFFFF&\3c&H000000&\blur0} PASSPORT. AND
+Dialogue: 0,0:00:02.48,0:00:03.36,Cap,,0,0,0,,{\an5\pos(540,1305)}MY {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}PASSPORT.{\1c&HFFFFFF&\3c&H000000&\blur0} AND
+Dialogue: 0,0:00:03.36,0:00:03.70,Cap,,0,0,0,,{\an5\pos(540,1305)}MY PASSPORT. {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}AND{\1c&HFFFFFF&\3c&H000000&\blur0}
+Dialogue: 0,0:00:03.58,0:00:03.84,Cap,,0,0,0,,{\an5\pos(540,1305)\fad(70,50)}{\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}DANNY{\1c&HFFFFFF&\3c&H000000&\blur0} SHARED WITH
+Dialogue: 0,0:00:03.84,0:00:04.20,Cap,,0,0,0,,{\an5\pos(540,1305)}DANNY {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}SHARED{\1c&HFFFFFF&\3c&H000000&\blur0} WITH
+Dialogue: 0,0:00:04.20,0:00:04.52,Cap,,0,0,0,,{\an5\pos(540,1305)}DANNY SHARED {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}WITH{\1c&HFFFFFF&\3c&H000000&\blur0}
+Dialogue: 0,0:00:04.40,0:00:04.56,Cap,,0,0,0,,{\an5\pos(540,1305)\fad(70,50)}{\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}ME{\1c&HFFFFFF&\3c&H000000&\blur0} THAT HE'D
+Dialogue: 0,0:00:04.56,0:00:04.72,Cap,,0,0,0,,{\an5\pos(540,1305)}ME {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}THAT{\1c&HFFFFFF&\3c&H000000&\blur0} HE'D
+Dialogue: 0,0:00:04.72,0:00:05.02,Cap,,0,0,0,,{\an5\pos(540,1305)}ME THAT {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}HE'D{\1c&HFFFFFF&\3c&H000000&\blur0}
+Dialogue: 0,0:00:04.90,0:00:05.04,Cap,,0,0,0,,{\an5\pos(540,1305)\fad(70,50)}{\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}BEEN{\1c&HFFFFFF&\3c&H000000&\blur0} PRACTICING SOMETHING
+Dialogue: 0,0:00:05.04,0:00:05.50,Cap,,0,0,0,,{\an5\pos(540,1305)}BEEN {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}PRACTICING{\1c&HFFFFFF&\3c&H000000&\blur0} SOMETHING
+Dialogue: 0,0:00:05.50,0:00:06.12,Cap,,0,0,0,,{\an5\pos(540,1305)}BEEN PRACTICING {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}SOMETHING{\1c&HFFFFFF&\3c&H000000&\blur0}
+Dialogue: 0,0:00:06.00,0:00:07.68,Cap,,0,0,0,,{\an5\pos(540,1305)\fad(70,50)}{\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}CALLED{\1c&HFFFFFF&\3c&H000000&\blur0} PROSPECTIVE HINDSIGHT.
+Dialogue: 0,0:00:07.68,0:00:08.12,Cap,,0,0,0,,{\an5\pos(540,1305)}CALLED {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}PROSPECTIVE{\1c&HFFFFFF&\3c&H000000&\blur0} HINDSIGHT.
+Dialogue: 0,0:00:08.12,0:00:08.68,Cap,,0,0,0,,{\an5\pos(540,1305)}CALLED PROSPECTIVE {\1c&HFFFFFF&\t(0,90,0.7,\1c&H00E5FF&\3c&H00E5FF&\blur0.9)}HINDSIGHT.{\1c&HFFFFFF&\3c&H000000&\blur0}
+Dialogue: 1,0:00:00.00,0:00:02.60,Hook,,0,0,0,,{\fad(140,220)\fscx92\fscy92\t(0,160,0.6,\fscx100\fscy100)}DANNY KAHNEMAN TAUGHT ME PRE-MORTEMS
+Dialogue: 1,0:00:00.00,0:00:09.00,Credit,,0,0,0,,@testpod

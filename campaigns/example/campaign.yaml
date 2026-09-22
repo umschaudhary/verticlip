@@ -1,0 +1,36 @@
+# One folder per campaign you've joined on Whop / Vyro / a creator's Discord.
+# Copy this folder, rename it, fill in the campaign's rules EXACTLY as written
+# on the campaign page — rule violations = unpaid views.
+
+name: Example Podcast Campaign
+platform: whop                 # whop | vyro | direct  (just for your records)
+campaign_url: https://whop.com/example-campaign
+active: true
+rate_per_1k: 1.50              # informational — used for the earnings estimate
+payout_cap_usd: 500            # per-clipper cap, informational
+
+# Where the source footage comes from (any mix)
+sources:
+  # Long-form YouTube videos / playlists / channels (yt-dlp handles all three)
+  youtube:
+    - https://www.youtube.com/watch?v=dQw4w9WgXcQ
+  # Local folder of campaign-provided footage (drop files in campaigns/<name>/footage/)
+  footage_dir: footage
+  # Optional: a public Google Drive / Dropbox folder link — downloaded with gdown / direct URL
+  drive_links: []
+
+# Rules pulled from the campaign page
+rules:
+  required_hashtags: ["#examplepod", "#clips"]
+  required_caption_text: "Full episode on @examplepod"   # appended to every caption
+  required_credit_overlay: "@examplepod"                 # burned into the video
+  banned_words: []
+  min_clip_seconds: 15
+  max_clip_seconds: 60
+  platforms: [youtube, instagram, tiktok]                 # only post where the campaign pays
+
+# Guidance for the LLM highlight picker — what THIS audience finds clippable
+highlight_brief: >
+  Pick moments with a strong hook in the first 2 seconds: hot takes, funny
+  exchanges, surprising facts, emotional beats, or advice that stands alone
+  without context. Avoid intros, ad reads, and inside jokes.

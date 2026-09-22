@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# clip — turn a video into vertical clips, in one command.
+#
+#   ./clip https://youtu.be/XYZ          1 clip,  nothing posted
+#   ./clip https://youtu.be/XYZ 6        6 clips, nothing posted
+#   ./clip https://youtu.be/XYZ 6 --post 6 clips, and publish them
+#   ./clip https://youtu.be/XYZ 6 -c pop  caption style: karaoke|pop|boxed|lyric|none
+#   ./clip https://youtu.be/XYZ 6 -t none title style:   boxed|clean|glow|none
+#   ./clip https://youtu.be/XYZ 6 -p scenes  pick: llm|scenes|even (scenes/even skip
+#                                            transcription — fast, no speech analysis)
+#   ./clip https://youtu.be/XYZ 6 -l card    framing: auto|smart|card|center|blur_bg
+#                                            card = nothing cropped, clear of app UI
+#   ./clip                               ask for everything, step by step
+#   ./clip --render                      re-render queued clips, no questions
+#   ./clip --status                      what's in the ledger
+#   ./clip --last                        open the most recent run folder
+#
+# Nothing is ever posted unless you pass --post.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY="${CLIPPER_PYTHON:-$HERE/.venv/bin/python}"
+[ -x "$PY" ] || PY="$(command -v python3)"
+
+open_last() {
+  local d
+  # newest run that actually produced clips (skips scratch dirs)
+  d="$(ls -dt "$HERE"/data/runs/*/ 2>/dev/null | while read -r x; do
+         compgen -G "$x*.mp4" >/dev/null && { echo "$x"; break; }; done || true)"
+  if [ -z "$d" ]; then echo "no runs yet"; return 1; fi
+  echo "$d"
+  [ -f "$d/clips.txt" ] && { echo; cat "$d/clips.txt"; }
+  command -v open >/dev/null && open "$d"
+}
+
+case "${1:-}" in
+  --last)   open_last; exit $? ;;
+  --status) exec "$PY" "$HERE/run.py" --status ;;
+  -h|--help)
+    sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    exit 0 ;;
+esac
+
+# Defaults for the wizard come from config.yaml, so what it offers is what a
+# plain `python run.py` would do.
+defaults() {
+  "$PY" - <<'EOF' 2>/dev/null || echo "1 boxed clean"
+import sys
+sys.path.insert(0, ".")
+try:
+    from clipper.config import load_config
+    c = load_config()
+    r = c.get("render", default={}) or {}
+    cap = r.get("captions", {}) or {}
+    print(int((c.get("limits", default={}) or {}).get("clips_per_source", 1)),
+          "none" if not cap.get("enabled", True) else cap.get("style", "boxed"),
+          (r.get("hook_title", {}) or {}).get("style", "clean"))
+except Exception:
+    print("1 boxed clean")
+EOF
+}
+
+# one_of <prompt> <default> <allowed...>  — re-asks until the answer is valid
+one_of() {
+  local prompt="$1" def="$2"; shift 2
+  local allowed=("$@") ans ok
+  while true; do
+    read -r -p "$prompt [$def]: " ans || { echo; exit 130; }
+    ans="${ans:-$def}"
+    ok=""
+    for v in "${allowed[@]}"; do [ "$ans" = "$v" ] && ok=1; done
+    [ -n "$ok" ] && { echo "$ans"; return; }
+    echo "   ↳ pick one of: ${allowed[*]}" >&2
+  done
+}
+
+wizard() {
+  local d n_def c_def t_def
+  d="$(defaults)"; read -r n_def c_def t_def <<<"$d"
+  echo "clip — press Enter to accept the [default]"
+  echo
+  read -r -p "Video URL (blank = re-render what's queued): " W_URL || { echo; exit 130; }
+  if [ -n "$W_URL" ]; then
+    while true; do
+      read -r -p "How many clips [$n_def]: " W_N || { echo; exit 130; }
+      W_N="${W_N:-$n_def}"
+      [[ "$W_N" =~ ^[1-9][0-9]*$ ]] && break
+      echo "   ↳ needs a whole number, 1 or more" >&2
+    done
+  fi
+  W_CAPS="$(one_of "Captions  (karaoke/pop/boxed/lyric/none)" "$c_def" karaoke pop boxed lyric none)"
+  W_HOOK="$(one_of "Title     (boxed/clean/glow/none)"        "$t_def" boxed clean glow none)"
+  local p
+  read -r -p "Publish to your accounts? (y/N): " p || { echo; exit 130; }
+  case "$p" in y|Y|yes|YES) W_POST="yes" ;; *) W_POST="no" ;; esac
+  echo
+}
+
+URL="${1:-}"
+N="${2:-1}"
+POST="no"
+CAPS=""
+HOOK=""
+PICK=""
+LAYOUT=""
+prev=""
+
+# No arguments and a terminal to ask in → walk through it.
+if [ $# -eq 0 ] && [ -t 0 ]; then
+  wizard
+  URL="$W_URL"; N="${W_N:-1}"; CAPS="$W_CAPS"; HOOK="$W_HOOK"; POST="$W_POST"
+elif [ "${1:-}" = "--render" ]; then
+  URL=""; set --
+fi
+
+for a in "$@"; do
+  [ "$a" = "--post" ] && POST="yes"
+  case "$prev" in -c|--captions) CAPS="$a" ;; -t|--hook) HOOK="$a" ;; -p|--pick) PICK="$a" ;; -l|--layout) LAYOUT="$a" ;; esac
+  prev="$a"
+done
+# a bare "--post" in slot 2 is a flag, not a clip count
+[[ "$N" =~ ^[0-9]+$ ]] || N=1
+
+args=()
+if [ -n "$URL" ] && [[ "$URL" != --* ]]; then
+  args+=(--url "$URL" --clips "$N")
+else
+  args+=(--stage render)          # no URL: just render what's already planned
+fi
+[ -n "$CAPS" ] && args+=(--captions "$CAPS")
+[ -n "$HOOK" ] && args+=(--hook "$HOOK")
+[ -n "$PICK" ] && args+=(--pick "$PICK")
+[ -n "$LAYOUT" ] && args+=(--layout "$LAYOUT")
+[ "$POST" = "yes" ] || args+=(--no-publish)
+
+echo "▸ ${URL:-<queued clips>}${URL:+  ·  $N clip(s)}${CAPS:+  ·  captions: $CAPS}${HOOK:+  ·  title: $HOOK}${PICK:+  ·  pick: $PICK}${LAYOUT:+  ·  layout: $LAYOUT}  ·  $([ "$POST" = yes ] && echo publishing || echo 'not posting')"
+log="$(mktemp -t clipper)"
+set +e
+"$PY" "$HERE/run.py" "${args[@]}" 2>&1 | tee "$log"
+rc=${PIPESTATUS[0]}
+set -e
+
+echo
+# Report THIS run's folder, not merely the newest one on disk — a pass that
+# produced nothing used to print an unrelated older folder and look successful.
+dir="$(grep -oE 'clip\(s\) → .*' "$log" | tail -1 | sed 's/.*→ //')"
+if [ -n "$dir" ] && [ -d "$dir" ]; then
+  echo "$dir"
+  [ -f "$dir/clips.txt" ] && { echo; cat "$dir/clips.txt"; }
+  command -v open >/dev/null && open "$dir"
+elif [ "$rc" -ne 0 ]; then
+  echo "run failed (exit $rc) — see the log above"
+else
+  echo "No clips were produced this run."
+  grep -qE 'highlight .* 0 clip' "$log" && cat <<'TIP'
+
+The highlighter found nothing worth cutting. Common causes:
+  • the source is music or has little speech — try  -c none  and see
+    campaigns/edits-demo for the beat-cut [EDITS] mode instead
+  • the transcript came out as one long block, so no 18-58s clip fits
+  • min_score in config.yaml is set too high for this material
+TIP
+fi
+rm -f "$log"

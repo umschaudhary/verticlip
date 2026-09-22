@@ -1,0 +1,14 @@
+name: Test Campaign (safe to delete)
+platform: whop
+campaign_url: https://whop.com/test
+active: true
+rate_per_1k: 2.0
+sources:
+  youtube: []
+  footage_dir: footage
+rules:
+  required_hashtags: ["#testpod"]
+  required_caption_text: "Full ep on @testpod"
+  required_credit_overlay: "@testpod"
+  platforms: [youtube, instagram, tiktok]
+highlight_brief: "Funny or surprising moments."

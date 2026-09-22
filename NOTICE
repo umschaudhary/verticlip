@@ -1,0 +1,11 @@
+Third-party components bundled with this repository
+===================================================
+
+assets/models/blaze_face_short_range.tflite
+    BlazeFace (short range) face-detection model, from Google MediaPipe.
+    Licensed under the Apache License 2.0.
+    https://github.com/google-ai-edge/mediapipe
+    Redistributed unmodified for offline face detection.
+
+Runtime dependencies (installed via requirements.txt, not bundled) carry their
+own licences — see each project for details.

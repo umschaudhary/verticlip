@@ -1,0 +1,151 @@
+# ─────────────────────────────────────────────────────────────
+#  clipper — fully automated clipping pipeline configuration
+#  Secrets (API keys, tokens) live in .env, NOT here.
+# ─────────────────────────────────────────────────────────────
+
+paths:
+  data_dir: ./data            # downloads, transcripts, renders, ledger.db
+  campaigns_dir: ./campaigns  # one sub-folder per campaign (see campaigns/example)
+
+# How many clips to produce per source video, and per run overall
+limits:
+  clips_per_source: 1                     # override per run with --clips N
+  max_clips_per_run: 12
+  max_posts_per_platform_per_day: 1      # 1 while proving the upload path; raise to 6 after
+  min_clip_seconds: 18
+  max_clip_seconds: 58                   # < 60s keeps it a Short / Reel
+  posting_gap_minutes: 45                # spacing between posts on one platform
+
+# External binaries. Leave commented to auto-detect: $<TOOL>_BIN, then this
+# section, then .venv/bin, then known prefixes, then PATH. Captions/hook titles
+# need an ffmpeg built WITH libass — Homebrew's ffmpeg 9 has none, so ffmpeg@7
+# (keg-only, never on PATH) is picked up automatically.
+tools:
+  # ffmpeg: /opt/homebrew/opt/ffmpeg@7/bin/ffmpeg
+  # ffprobe: /opt/homebrew/opt/ffmpeg@7/bin/ffprobe
+  # yt-dlp: /path/to/yt-dlp
+  # gdown: /path/to/gdown
+
+# Source download. A 9:16 crop keeps only height*0.5625 of the width, so the
+# source height sets the real output quality: 720p -> 2.7x upscale to 1080x1920,
+# 1080p -> 1.8x, 2160p -> none. Raise for quality, lower for disk.
+download:
+  max_height: 1080             # 720 | 1080 | 1440 | 2160
+
+transcription:
+  model: small                 # tiny | base | small | medium | large-v3  (small is fast on M-series)
+  device: auto                 # auto | cpu | cuda
+  compute_type: int8
+  language: null               # null = auto-detect
+  vad_filter: true             # voice-activity gate. Tuned for speech: sung vocals over a
+                               # backing track read as silence and a music video comes back
+                               # with ZERO segments. Music campaigns override per-campaign
+                               # with `vad_filter: false` in their rules: block.
+
+highlighter:
+  # Local by default: Ollama runs the model on this machine, so there is no account,
+  # no API key, and nothing leaves the box. Install from https://ollama.com then:
+  #     ollama pull qwen2.5:7b-instruct
+  provider: ollama             # ollama | anthropic | openai
+  model: qwen2.5:7b-instruct   # for anthropic: claude-haiku-4-5-20251001, etc.
+  # base_url: http://localhost:11434
+  #   ollama    — where your Ollama is, if not localhost
+  #   anthropic — your own Anthropic-compatible gateway (else ANTHROPIC_API_KEY)
+  #   openai    — an OpenAI-compatible endpoint (needs OPENAI_API_KEY)
+  max_tokens: 2000
+  timeout_s: 300
+  window_seconds: 600          # transcript chunk size sent to the LLM. Smaller windows
+                               # mean smaller prompts, which the gateway is less likely
+                               # to time out on (HTTP 524) — try 300 on long sources.
+  max_parallel: 4              # windows asked at once. 1 = one at a time (the old behaviour)
+  min_score: 7                 # 1-10 virality score threshold
+
+render:
+  width: 1080
+  height: 1920
+  fps: 30
+  crop_mode: auto              # auto   — stacked split when two faces persist, else face tracking
+                               # smart  — face tracking only, never splits
+                               # card   — whole frame as an inset panel over a blurred
+                               #          backdrop: nothing cropped away, and it sits
+                               #          clear of the like/share buttons
+                               # center | blur_bg
+  # 'card' only. Margins and vertical placement are chosen so the picture clears the
+  # platform UI — captions/handle along the bottom ~22%, app chrome across the top ~10%.
+  card:
+    fill_pct: 70               # how much of the screen HEIGHT the panel should fill.
+                               # 0 = keep the whole frame (a 16:9 source lands at ~28%).
+                               # Higher means a bigger panel, paid for by cropping the
+                               # sides: 40 ≈ keeps 70% of the width, 55 ≈ 51%, 70 ≈ 40%.
+    margin_pct: 6              # side breathing room, % of width
+    corner_radius: 28          # 0 = square corners
+    backdrop_blur: 40          # gaussian sigma on the background copy
+    backdrop_dim: 0.45         # 0 = untouched, 1 = black
+  captions:
+    enabled: true
+    style: boxed                 # boxed | karaoke | pop
+                                 #   karaoke — 3-word line, active word colour-swaps with an eased fade
+                                 #   pop     — one big word at a time, scales up as it lands
+                                 #   boxed   — line on an opaque band, most legible over busy footage
+    font: Montserrat Black       # fontconfig FAMILY name (`fc-list : family`), style included.
+                                 # Bare "Montserrat" resolves to the variable font's LIGHT default
+                                 # and renders hairline-thin — always name the weight.
+    font_size: 78                # scaled per style (pop renders ~1.3x, boxed ~0.95x)
+    highlight_color: "&H0000E5FF"   # ASS BGR — yellow
+    base_color: "&H00FFFFFF"
+    glow_color: "&H0000E5FF"        # outline glow on the active word (karaoke/pop)
+    glow_blur: 0.9                  # glow softness; 0 = crisp edge, >1.5 gets mushy
+    outline: 4
+    shadow: 3                       # drop shadow depth; ignored by 'boxed'
+    words_per_line: 3               # ignored by 'pop' (always one word)
+    position_pct: 68                # vertical position from top, %
+  watermark_text: ""              # optional, e.g. "@yourhandle"
+  hook_title:
+    enabled: true                 # LLM-written hook shown for first 2.5s
+    style: clean                  # boxed — white on a black slab (ragged on two lines)
+                                  # clean — white with a black outline + drop shadow
+                                  # glow  — white with a soft blurred edge
+                                  # none  — no title card at all
+    font_size: 84
+    # hold_seconds: 2.6           # or "full" to hold the line for the whole clip
+    # uppercase: true
+  # [EDITS] campaigns only (mode: edits). Overridable per campaign under
+  # rules.render.edit — see campaigns/edits-demo/campaign.yaml.
+  edit:
+    beats_per_shot: 4             # cut every Nth detected beat; 0 = one static shot
+    punch: 0.08                   # zoom ease at each cut; 0 = no push
+    transition: auto              # auto | whip | slide | dissolve | zoom | glitch |
+                                  # flash | cut | any raw xfade name (e.g. circleclose)
+    transition_duration: 0.22     # seconds of overlap per transition
+    effects:
+      flash_on_cut: false         # white frame on each cut
+      grade: none                 # none | warm | cool | crush | vhs
+      grain: 0                    # 0-20 film grain
+      vignette: false
+
+publish:
+  youtube:
+    enabled: true
+    privacy: unlisted             # public | unlisted | private
+                                  # UNLISTED while testing — a bad clip posted publicly
+                                  # to a real channel is not easily undone. Flip to
+                                  # public once a live upload has been verified.
+    category_id: "24"             # Entertainment
+    made_for_kids: false
+  instagram:
+    enabled: false                # not yet authenticated — leave off until YouTube works
+    # Reels API needs a PUBLIC video URL. We upload to S3-compatible storage first.
+    storage: r2                   # r2 | s3
+  tiktok:
+    enabled: false                # not yet authenticated
+    privacy: SELF_ONLY            # unaudited apps can ONLY post SELF_ONLY (private). Set PUBLIC_TO_EVERYONE after TikTok audits your app.
+
+# Disk. A 30-minute 1080p source is ~300 MB; the clips cut from it are ~20 MB.
+# Transcripts are always kept, so re-picking highlights never needs a re-download —
+# only re-rendering would. Campaign footage under campaigns/ is never deleted.
+retention:
+  delete_source_after_render: true   # drop data/downloads/<id>.mp4 once all its clips render
+  keep_days: 0                       # 0 = delete immediately; 14 = keep two weeks first
+
+submissions:
+  export_csv: ./data/submissions.csv   # links to paste into Whop / Vyro campaign forms

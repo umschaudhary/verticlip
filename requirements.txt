@@ -1,0 +1,13 @@
+pyyaml>=6.0
+requests>=2.31
+yt-dlp>=2024.8.6
+gdown>=5.2
+faster-whisper>=1.0.3
+anthropic>=0.34
+opencv-python-headless>=4.9,<5   # 5.x drops objdetect → no face-aware smart crop
+# YouTube
+google-api-python-client>=2.140
+google-auth-oauthlib>=1.2
+google-auth-httplib2>=0.2
+# Instagram (R2/S3 upload)
+boto3>=1.34

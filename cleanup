@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""cleanup — delete the video files clipper has produced or downloaded.
+
+    ./cleanup              show what would go, then ask before deleting
+    ./cleanup --dry-run    show only, never delete
+    ./cleanup --all        also wipe transcripts and the ledger (full reset)
+    ./cleanup --yes        skip the prompt (for scripts and cron)
+
+Your own footage under campaigns/ is NEVER touched — only files this pipeline
+downloaded or rendered. Nothing is deleted until you confirm.
+"""
+from __future__ import annotations
+
+import argparse
+import shutil
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+
+VIDEO_EXT = {".mp4", ".mkv", ".mov", ".webm", ".m4v", ".ass"}
+
+
+def human(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024.0
+    return f"{n:.1f} GB"
+
+
+def collect(data: Path) -> dict[str, list[Path]]:
+    """Group deletable files. Keys are what the user sees, so keep them plain."""
+    groups: dict[str, list[Path]] = {}
+
+    def add(label: str, paths):
+        files = [p for p in paths if p.is_file() and p.suffix.lower() in VIDEO_EXT]
+        if files:
+            groups[label] = sorted(files)
+
+    add("downloaded sources", (data / "downloads").glob("*"))
+    add("rendered clips (runs)", (data / "runs").rglob("*"))
+    add("rendered clips (legacy)", (data / "renders").glob("*"))
+    return groups
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__.split("\n\n")[0],
+        epilog=__doc__.split("\n\n", 1)[1])
+    ap.add_argument("--dry-run", action="store_true", help="show what would go, delete nothing")
+    ap.add_argument("--all", action="store_true",
+                    help="also delete transcripts and the ledger — a full reset")
+    ap.add_argument("--yes", "-y", action="store_true", help="don't ask")
+    ap.add_argument("--data", metavar="DIR",
+                    help="clean this data directory instead of the configured one")
+    a = ap.parse_args()
+
+    if a.data:
+        data = Path(a.data).expanduser().resolve()
+    else:
+        try:
+            from clipper.config import load_config
+            data = load_config(ROOT).data_dir
+        except Exception:                   # noqa: BLE001 — config may be unreadable
+            data = ROOT / "data"
+
+    groups = collect(data)
+    extras: list[Path] = []
+    if a.all:
+        extras = [p for p in (data / "transcripts").glob("*.json") if p.is_file()]
+        for f in (data / "ledger.db", data / "submissions.csv"):
+            if f.exists():
+                extras.append(f)
+
+    total_files = sum(len(v) for v in groups.values()) + len(extras)
+    if not total_files:
+        print("nothing to clean — no videos on disk")
+        return 0
+
+    total_bytes = 0
+    print(f"in {data}\n")
+    for label, files in groups.items():
+        size = sum(f.stat().st_size for f in files)
+        total_bytes += size
+        print(f"  {label:<26} {len(files):>4} file(s)   {human(size):>9}")
+    if extras:
+        size = sum(f.stat().st_size for f in extras)
+        total_bytes += size
+        print(f"  {'transcripts + ledger':<26} {len(extras):>4} file(s)   {human(size):>9}")
+    print(f"  {'':26} {'':>4}            {'─' * 9}")
+    print(f"  {'total':<26} {total_files:>4} file(s)   {human(total_bytes):>9}")
+    print("\n  campaigns/ footage is not touched.")
+
+    if a.dry_run:
+        print("\n--dry-run: nothing deleted")
+        return 0
+
+    if not a.yes:
+        # a full reset loses the record of what was already posted, so make that
+        # one harder to do by accident than deleting re-creatable video files
+        if a.all:
+            print("\n--all also wipes the ledger, including which clips were already posted.")
+            reply = input("Type 'yes' to confirm: ").strip()
+            ok = reply == "yes"
+        else:
+            reply = input(f"\nDelete these {total_files} file(s)? [y/N] ").strip().lower()
+            ok = reply in ("y", "yes")
+        if not ok:
+            print("cancelled — nothing deleted")
+            return 1
+
+    freed = 0
+    for files in list(groups.values()) + [extras]:
+        for f in files:
+            try:
+                freed += f.stat().st_size
+                f.unlink()
+            except OSError as e:
+                print(f"  could not delete {f.name}: {e}", file=sys.stderr)
+
+    # drop the now-empty per-run folders so data/runs doesn't fill with husks
+    runs = data / "runs"
+    if runs.exists():
+        for d in sorted(runs.iterdir(), reverse=True):
+            if d.is_dir() and not any(d.iterdir()):
+                d.rmdir()
+            elif d.is_dir() and {p.name for p in d.iterdir()} <= {"clips.txt", "manifest.json"}:
+                shutil.rmtree(d)
+
+    if not a.all and not a.data:
+        # keep the ledger honest: those files are gone, so clear the paths
+        try:
+            from clipper.config import load_config
+            from clipper.ledger import Ledger
+            led = Ledger(load_config(ROOT).data_dir / "ledger.db")
+            led.conn.execute("UPDATE sources SET video_path=NULL WHERE video_path LIKE ?",
+                             (f"{data}%",))
+            led.conn.execute("UPDATE clips SET render_path=NULL, status='planned' "
+                             "WHERE status='rendered'")
+            led.conn.commit()
+            print("  ledger updated: rendered clips reset to 'planned'")
+        except Exception as e:  # noqa: BLE001
+            print(f"  (ledger not updated: {e})", file=sys.stderr)
+
+    print(f"\ndeleted {total_files} file(s), freed {human(freed)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
