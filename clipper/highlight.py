@@ -114,7 +114,14 @@ def _call_llm(cfg: Config, system: str, user: str) -> str:
         return r.json().get("message", {}).get("content", "")
 
     if provider == "anthropic":
-        import anthropic  # lazy
+        try:
+            import anthropic  # lazy: an optional extra, not a core dependency
+        except ImportError as e:
+            raise RuntimeError(
+                "provider 'anthropic' needs the anthropic package, which is an optional "
+                "extra. Install it with:  uv sync --extra anthropic   (or --extra all). "
+                "The default provider is local Ollama and needs nothing."
+            ) from e
 
         key = os.environ.get("ANTHROPIC_API_KEY")
         base_url = os.environ.get("ANTHROPIC_BASE_URL") or cfg.get(
@@ -179,6 +186,7 @@ def pick_highlights(cfg: Config, camp: Campaign, transcript: dict, llm=None) -> 
     passed: list[dict] = []   # cleared min_score
     below: list[dict] = []    # valid but under the threshold, kept as fallback
     windows = list(_windows(segs, window_s))
+    failures: list[str] = []
 
     def _ask(win: tuple[int, int]) -> str:
         i0, i1 = win
@@ -186,8 +194,10 @@ def pick_highlights(cfg: Config, camp: Campaign, transcript: dict, llm=None) -> 
                 f"TRANSCRIPT WINDOW:\n{_fmt_window(segs, i0, i1)}")
         try:
             return llm(system, user)
-        except Exception:  # noqa: BLE001
-            log.exception("LLM call failed for window %d-%d", i0, i1)
+        except Exception as e:  # noqa: BLE001
+            # one line, not a traceback per window — the same cause repeats for each
+            failures.append(str(e))
+            log.error("window %d-%d: %s", i0, i1, str(e).splitlines()[0][:200])
             return ""
 
     # The windows are independent, and each call is minutes of waiting on the
@@ -200,6 +210,11 @@ def pick_highlights(cfg: Config, camp: Campaign, transcript: dict, llm=None) -> 
             raws = list(ex.map(_ask, windows))
     else:
         raws = [_ask(w) for w in windows]
+
+    if failures and len(failures) == len(windows):
+        # every window failed for the same reason; returning [] would look like
+        # "nothing was worth clipping" when the model was never reached at all
+        raise RuntimeError(failures[0])
 
     for wi, ((i0, i1), raw) in enumerate(zip(windows, raws), 1):
         log.info("  window %d/%d (%.0f–%.0fs) → %d candidate(s)",

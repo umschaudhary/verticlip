@@ -55,8 +55,8 @@ if command -v uv >/dev/null 2>&1; then
   ok "uv $(uv --version 2>/dev/null | awk '{print $2}')"
   echo "  syncing dependencies…"
   # --extra all pulls the optional publishing + hosted-model extras too
-  if uv sync --extra all >/dev/null 2>&1; then ok "dependencies (uv sync)"
-  else warn "uv sync failed — run it yourself to see why"; fi
+  if uv sync --extra all >/dev/null 2>&1; then ok "dependencies (uv sync --extra all)"
+  else warn "uv sync --extra all failed — run it yourself to see why"; fi
 else
   warn "uv — the project's package manager. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
   # fall back to a plain venv so the tool still works without uv

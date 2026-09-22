@@ -160,6 +160,8 @@ retention:
 
 Hosted models are opt-in: set `CLIPPER_LLM_PROVIDER` plus a key in `.env` and
 they override `config.yaml`, so a personal setup never has to be committed.
+The `anthropic` provider needs its own extra — `uv sync --extra anthropic` — and
+says so if you pick it without installing it.
 
 ---
 

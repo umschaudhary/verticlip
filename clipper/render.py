@@ -1106,14 +1106,29 @@ def run(cfg: Config, ledger: Ledger) -> int:
     rdir.mkdir(parents=True, exist_ok=True)
     max_run = int(cfg.get("limits", "max_clips_per_run", default=12))
     n = 0
+    missing_sources: set[str] = set()
     planned = list(ledger.clips_with_status("planned", limit=max_run))
     for idx, clip in enumerate(planned, 1):
-        log.info("  clip %d/%d …", idx, len(planned))
         camp = camps.get(clip["campaign"])
         src = ledger.conn.execute("SELECT * FROM sources WHERE id=?", (clip["source_id"],)).fetchone()
-        if not camp or not src or not src["video_path"]:
+        if not camp or not src:
             ledger.update_clip(clip["id"], status="failed")
             continue
+        # The source may have been pruned after its clips rendered, or cleaned up.
+        # That is recoverable — send the source back to be downloaded and leave the
+        # clip planned, rather than failing it permanently and running ffmpeg
+        # against a path that is not there.
+        if not src["video_path"] or not Path(src["video_path"]).exists():
+            if src["id"] not in missing_sources:
+                missing_sources.add(src["id"])
+                log.warning("source %s is gone — re-queued for download; its %d clip(s) "
+                            "stay planned", (src["title"] or src["id"])[:40],
+                            ledger.conn.execute(
+                                "SELECT COUNT(*) FROM clips WHERE source_id=? AND status='planned'",
+                                (src["id"],)).fetchone()[0])
+                ledger.update_source(src["id"], status="new", video_path=None)
+            continue
+        log.info("  clip %d/%d …", idx, len(planned))
         out = rdir / f"{clip['id']}.mp4"
         try:
             tr = load_transcript(cfg, src["id"])
