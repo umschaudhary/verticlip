@@ -1086,9 +1086,23 @@ def render_edit(cfg: Config, camp: Campaign, track: Path, transcript: dict, star
     return out
 
 
+def default_run_dir(data_dir: Path, label: str = "") -> Path:
+    """The one place clips are ever written: data/runs/<timestamp>[_<label>].
+
+    Renders used to fall back to a flat data/renders when no run directory was
+    set, so output ended up in two places depending on how the stage was invoked.
+    Everything lands under data/runs now, whatever called it.
+    """
+    import datetime as _dt
+    stamp = _dt.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    # deliberately not created here: asking where output *would* go should not
+    # litter data/runs with empty folders. Whoever writes first creates it.
+    return data_dir / "runs" / (f"{stamp}_{label}" if label else stamp)
+
+
 def run(cfg: Config, ledger: Ledger) -> int:
     camps = {c.slug: c for c in cfg.campaigns}
-    rdir = cfg.run_dir or (cfg.data_dir / "renders")
+    rdir = cfg.run_dir or default_run_dir(cfg.data_dir)
     rdir.mkdir(parents=True, exist_ok=True)
     max_run = int(cfg.get("limits", "max_clips_per_run", default=12))
     n = 0

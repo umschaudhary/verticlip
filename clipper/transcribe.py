@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from .config import Config
@@ -23,11 +24,21 @@ def _get_model(cfg: Config):
         from faster_whisper import WhisperModel  # lazy import: heavy
 
         t = cfg.get("transcription", default={}) or {}
+        # CTranslate2 has no Metal backend, so this is CPU work on Apple Silicon.
+        # Left at 0 it picks a conservative thread count; pinning it to the
+        # performance cores is most of the easy speed-up.
+        threads = int(t.get("cpu_threads", 0) or 0)
+        if not threads:
+            threads = max((os.cpu_count() or 4) // 2, 4)
         _model = WhisperModel(
             t.get("model", "small"),
             device=t.get("device", "auto"),
             compute_type=t.get("compute_type", "int8"),
+            cpu_threads=threads,
+            num_workers=int(t.get("num_workers", 1) or 1),
         )
+        log.info("whisper %s, %s, %d thread(s)", t.get("model", "small"),
+                 t.get("compute_type", "int8"), threads)
     return _model
 
 
@@ -36,8 +47,26 @@ def transcribe_file(cfg: Config, video: Path, out: Path, vad: bool | None = None
     lang = cfg.get("transcription", "language")
     if vad is None:
         vad = bool(cfg.get("transcription", "vad_filter", default=True))
+    t = cfg.get("transcription", default={}) or {}
     kw = {"vad_parameters": {"min_silence_duration_ms": 400}} if vad else {}
-    segments, info = model.transcribe(
+    # Greedy decoding is roughly twice the speed of the default 5-way beam, and on
+    # clear speech the transcript is near-identical. Raise beam_size for accuracy.
+    kw["beam_size"] = int(t.get("beam_size", 1) or 1)
+    # Whisper otherwise feeds each window its own previous output, which is how it
+    # gets stuck repeating a phrase for minutes — the cause of the slow stretches.
+    kw["condition_on_previous_text"] = bool(t.get("condition_on_previous_text", False))
+
+    engine = model
+    batch = int(t.get("batch_size", 8) or 0)
+    if batch > 1:
+        try:
+            from faster_whisper import BatchedInferencePipeline
+            engine = BatchedInferencePipeline(model=model)
+            kw["batch_size"] = batch
+        except (ImportError, TypeError) as e:
+            log.info("batched pipeline unavailable (%s) — transcribing sequentially", e)
+
+    segments, info = engine.transcribe(
         str(video), language=lang, word_timestamps=True, vad_filter=vad, **kw,
     )
     data = {"language": info.language, "duration": info.duration, "segments": []}

@@ -4,7 +4,8 @@
 # ─────────────────────────────────────────────────────────────
 
 paths:
-  data_dir: ./data            # downloads, transcripts, renders, ledger.db
+  data_dir: ./data            # downloads, transcripts, runs/, logs, ledger.db
+                              # every clip is written to data/runs/<timestamp>/
   campaigns_dir: ./campaigns  # one sub-folder per campaign (see campaigns/example)
 
 # How many clips to produce per source video, and per run overall
@@ -35,8 +36,14 @@ download:
 transcription:
   model: small                 # tiny | base | small | medium | large-v3  (small is fast on M-series)
   device: auto                 # auto | cpu | cuda
-  compute_type: int8
+  compute_type: int8           # int8 is the fast path on CPU; float16 only helps on CUDA
   language: null               # null = auto-detect
+  # Speed. Transcription is the slowest stage, and all three of these trade a
+  # little accuracy for a lot of wall-clock on clear speech.
+  batch_size: 8                # 1 disables batching. The single biggest win.
+  beam_size: 1                 # 1 = greedy (~2x faster than the default 5)
+  cpu_threads: 0               # 0 = half your cores, minimum 4
+  condition_on_previous_text: false   # true is more coherent but can loop for minutes
   vad_filter: true             # voice-activity gate. Tuned for speech: sung vocals over a
                                # backing track read as silence and a music video comes back
                                # with ZERO segments. Music campaigns override per-campaign

@@ -69,6 +69,15 @@ class Ledger:
         self.conn = sqlite3.connect(str(path))
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Additive migrations. Existing databases must keep working untouched."""
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(clips)")}
+        if "decision" not in cols:
+            # NULL = undecided. Set by the review gate; rejected clips never post.
+            self.conn.execute("ALTER TABLE clips ADD COLUMN decision TEXT")
+            self.conn.commit()
 
     @contextmanager
     def tx(self) -> Iterator[sqlite3.Connection]:
@@ -124,6 +133,29 @@ class Ledger:
         return self.conn.execute("SELECT COUNT(*) FROM clips WHERE source_id=?", (source_id,)).fetchone()[0]
 
     # ── posts ──────────────────────────────────────────────────
+    def decide_clip(self, cid: str, decision: str) -> int:
+        """Approve or reject a clip.
+
+        Rejecting drops its queued posts, so a clip you said no to can never be
+        picked up by a later publish pass. Already-posted rows are left alone —
+        rejecting after the fact cannot un-post anything.
+        """
+        removed = 0
+        with self.tx() as c:
+            c.execute("UPDATE clips SET decision=?, updated_at=? WHERE id=?",
+                      (decision, now(), cid))
+            if decision == "rejected":
+                removed = c.execute(
+                    "DELETE FROM posts WHERE clip_id=? AND status='queued'", (cid,)).rowcount
+        return removed
+
+    def decisions_for(self, clip_ids: list[str]) -> dict[str, str]:
+        if not clip_ids:
+            return {}
+        q = ",".join("?" * len(clip_ids))
+        return {r["id"]: r["decision"] for r in self.conn.execute(
+            f"SELECT id, decision FROM clips WHERE id IN ({q})", clip_ids) if r["decision"]}
+
     def queue_post(self, clip_id: str, campaign: str, platform: str) -> None:
         with self.tx() as c:
             c.execute(
@@ -138,6 +170,7 @@ class Ledger:
                FROM posts p JOIN clips c ON c.id=p.clip_id
                WHERE p.platform=? AND p.status IN ('queued','failed') AND p.attempts<?
                  AND c.status='rendered'
+                 AND COALESCE(c.decision,'') <> 'rejected'
                ORDER BY c.score DESC, p.created_at""",
             (platform, max_attempts),
         ).fetchall()

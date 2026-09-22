@@ -83,16 +83,13 @@ def add_url(url: str, campaigns_dir: Path) -> str:
 
 
 def _run_dir(data_dir: Path, url: str | None) -> Path:
-    """A fresh folder per pass: data/runs/<timestamp>[_<video-id>]."""
-    stamp = dt.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    """A fresh folder per pass, named after the video when there is one."""
     label = ""
     if url:
         m = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{6,})", url)
         if m:
-            label = "_" + m.group(1)
-    d = data_dir / "runs" / f"{stamp}{label}"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+            label = m.group(1)
+    return render.default_run_dir(data_dir, label)
 
 
 def _write_manifest(cfg, ledger, run_dir: Path, started: str) -> int:
@@ -100,6 +97,7 @@ def _write_manifest(cfg, ledger, run_dir: Path, started: str) -> int:
     rows = [dict(r) for r in ledger.conn.execute(
         "SELECT id, campaign, start_s, end_s, score, hook, title, caption, render_path "
         "FROM clips WHERE render_path LIKE ? ORDER BY id", (f"{run_dir}%",))]
+    run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "manifest.json").write_text(
         json.dumps({"started": started, "run_dir": str(run_dir), "clips": rows},
                    indent=2, ensure_ascii=False), encoding="utf-8")
@@ -176,9 +174,10 @@ def one_pass(stages: list[str], dry_run: bool = False, clips: int | None = None,
     n = _write_manifest(cfg, ledger, cfg.run_dir, started)
     if n == 0:
         # nothing rendered this pass — don't leave an empty folder behind
-        for f in cfg.run_dir.iterdir():
-            f.unlink()
-        cfg.run_dir.rmdir()
+        if cfg.run_dir.exists():
+            for f in cfg.run_dir.iterdir():
+                f.unlink()
+            cfg.run_dir.rmdir()
         log.info("no clips rendered this pass — removed empty %s", cfg.run_dir.name)
     else:
         log.info("%d clip(s) → %s", n, cfg.run_dir)

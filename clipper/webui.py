@@ -11,16 +11,17 @@ publishes video, and it should not be reachable from the network by accident.
 """
 from __future__ import annotations
 
-import html
 import json
 import logging
 import mimetypes
 import os
 import queue
+import shutil
 import subprocess
 import threading
 import time
 import webbrowser
+from contextlib import contextmanager
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -87,6 +88,21 @@ class _Bus(logging.Handler):
 BUS = _Bus()
 
 
+@contextmanager
+def _ledger(cfg):
+    """A short-lived ledger connection.
+
+    sqlite3 connections are not safe to share across threads, and every request
+    here arrives on its own; opening per request is cheaper than the bugs.
+    """
+    from .ledger import Ledger
+    led = Ledger(cfg.data_dir / "ledger.db")
+    try:
+        yield led
+    finally:
+        led.conn.close()
+
+
 # ── the run, on its own thread ────────────────────────────────
 
 class Runner:
@@ -131,7 +147,7 @@ class Runner:
 
 # ── reading what came out ─────────────────────────────────────
 
-def list_runs(cfg, limit: int = 12) -> list[dict]:
+def list_runs(cfg, limit: int = 12, ledger=None) -> list[dict]:
     """Newest-first runs that actually produced clips."""
     root = cfg.data_dir / "runs"
     out = []
@@ -150,6 +166,7 @@ def list_runs(cfg, limit: int = 12) -> list[dict]:
             except (json.JSONDecodeError, KeyError, TypeError):
                 meta = {}
         campaign = next((c.get("campaign") for c in meta.values() if c.get("campaign")), "")
+        decisions = ledger.decisions_for([c.stem for c in clips]) if ledger else {}
         out.append({
             "name": d.name,
             "path": str(d),
@@ -162,6 +179,7 @@ def list_runs(cfg, limit: int = 12) -> list[dict]:
                 "title": (meta.get(c.stem) or {}).get("title", ""),
                 "seconds": round((meta.get(c.stem) or {}).get("end_s", 0)
                                  - (meta.get(c.stem) or {}).get("start_s", 0), 1),
+                "decision": decisions.get(c.stem),
             } for c in clips],
         })
         if len(out) >= limit:
@@ -307,7 +325,9 @@ class Handler(BaseHTTPRequestHandler):
             })
 
         if p == "/api/runs":
-            return self._json({"runs": list_runs(self.cfg_loader())})
+            cfg = self.cfg_loader()
+            with _ledger(cfg) as led:
+                return self._json({"runs": list_runs(cfg, ledger=led)})
 
         if p == "/api/events":
             return self._sse()
@@ -330,14 +350,81 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
-        u = urlparse(self.path)
-        if unquote(u.path) != "/api/run":
-            return self._send(404, b"not found", "text/plain")
+        route = unquote(urlparse(self.path).path)
         try:
             n = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(n) or b"{}")
         except (ValueError, json.JSONDecodeError):
             return self._json({"error": "bad request body"}, 400)
+
+        if route == "/api/decision":
+            cid = str(body.get("clip") or "")
+            decision = str(body.get("decision") or "")
+            if decision not in ("approved", "rejected", "none"):
+                return self._json({"error": "decision must be approved, rejected or none"}, 400)
+            cfg = self.cfg_loader()
+            with _ledger(cfg) as led:
+                if not led.conn.execute("SELECT 1 FROM clips WHERE id=?", (cid,)).fetchone():
+                    return self._json({"error": f"no clip {cid}"}, 404)
+                dropped = led.decide_clip(cid, None if decision == "none" else decision)
+            if decision == "rejected" and dropped:
+                log.info("rejected %s — removed %d queued post(s)", cid, dropped)
+            return self._json({"ok": True, "dropped": dropped})
+
+        if route == "/api/reveal":
+            cfg = self.cfg_loader()
+            target = self._under_runs(cfg, str(body.get("run") or ""))
+            if target is None or not target.exists():
+                return self._json({"error": "unknown run"}, 404)
+            opener = "open" if sys.platform == "darwin" else "xdg-open"
+            try:
+                subprocess.Popen([opener, str(target)],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as e:
+                return self._json({"error": f"cannot open a file manager here ({e})"}, 500)
+            return self._json({"ok": True})
+
+        if route == "/api/delete_run":
+            cfg = self.cfg_loader()
+            target = self._under_runs(cfg, str(body.get("run") or ""))
+            if target is None or not target.is_dir():
+                return self._json({"error": "unknown run"}, 404)
+            ids = [f.stem for f in target.glob("*.mp4")]
+            shutil.rmtree(target, ignore_errors=True)
+            with _ledger(cfg) as led:
+                for cid in ids:
+                    # the file is gone; put the clip back in the render queue
+                    led.conn.execute(
+                        "UPDATE clips SET render_path=NULL, status='planned' WHERE id=?", (cid,))
+                    led.conn.execute(
+                        "DELETE FROM posts WHERE clip_id=? AND status='queued'", (cid,))
+                led.conn.commit()
+            log.info("deleted run %s (%d clip(s) back in the render queue)", target.name, len(ids))
+            return self._json({"ok": True, "clips": len(ids)})
+
+        if route == "/api/rerender":
+            cid = str(body.get("clip") or "")
+            cfg = self.cfg_loader()
+            with _ledger(cfg) as led:
+                row = led.conn.execute("SELECT render_path FROM clips WHERE id=?", (cid,)).fetchone()
+                if not row:
+                    return self._json({"error": f"no clip {cid}"}, 404)
+                old_file = row["render_path"]
+                led.conn.execute(
+                    "UPDATE clips SET render_path=NULL, status='planned' WHERE id=?", (cid,))
+                led.conn.commit()
+            if old_file:
+                Path(old_file).unlink(missing_ok=True)
+                Path(old_file).with_suffix(".jpg").unlink(missing_ok=True)
+            opts = {"url": "", "stages": ["render"], "clips": 1,
+                    "captions": body.get("captions"), "hook": body.get("hook"),
+                    "pick": None, "layout": body.get("layout")}
+            if not self.runner.start(opts):
+                return self._json({"error": "a run is already in progress"}, 409)
+            return self._json({"ok": True})
+
+        if route != "/api/run":
+            return self._send(404, b"not found", "text/plain")
 
         url = (body.get("url") or "").strip()
         stages = ["ingest", "transcribe", "highlight", "render", "export", "prune"]

@@ -41,6 +41,7 @@ def collect(data: Path) -> dict[str, list[Path]]:
 
     add("downloaded sources", (data / "downloads").glob("*"))
     add("rendered clips (runs)", (data / "runs").rglob("*"))
+    # pre-0.1 installs wrote to a flat data/renders; still cleaned if present
     add("rendered clips (legacy)", (data / "renders").glob("*"))
     return groups
 

@@ -67,7 +67,7 @@ class Config:
     data_dir: Path
     campaigns_dir: Path
     campaigns: list[Campaign] = field(default_factory=list)
-    run_dir: Path | None = None    # set per pass; renders land here instead of data/renders
+    run_dir: Path | None = None    # this pass's output folder under data/runs
 
     def __getitem__(self, key: str) -> Any:
         return self.raw[key]
@@ -119,7 +119,7 @@ def load_config(root: Path | None = None) -> Config:
     raw = yaml.safe_load((root / "config.yaml").read_text()) or {}
     data_dir = _resolve(root, raw.get("paths", {}).get("data_dir", "./data"))
     campaigns_dir = _resolve(root, raw.get("paths", {}).get("campaigns_dir", "./campaigns"))
-    for sub in ("downloads", "transcripts", "renders", "logs"):
+    for sub in ("downloads", "transcripts", "runs", "logs"):
         (data_dir / sub).mkdir(parents=True, exist_ok=True)
     cfg = Config(raw=raw, root=root, data_dir=data_dir, campaigns_dir=campaigns_dir)
     if campaigns_dir.exists():

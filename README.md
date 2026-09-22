@@ -59,7 +59,9 @@ you pass `--post`.**
 ```
 
 Clips land in `data/runs/<timestamp>_<video-id>/` with a `clips.txt` and a
-`manifest.json` recording what was cut and why.
+`manifest.json` recording what was cut and why. **That is the only place clips
+are ever written** — one folder per run, nothing scattered elsewhere. A run that
+produces nothing removes its own folder.
 
 Under `./clip` sits `run.py`, if you want the stages directly:
 
@@ -238,7 +240,10 @@ clipper/
   config.py  ledger.py  binaries.py
   ingest.py  transcribe.py  highlight.py  beats.py  render.py  submissions.py
   publish/   youtube.py  instagram.py  tiktok.py
-data/                        downloads/ transcripts/ runs/ logs/ ledger.db
+data/
+  runs/<timestamp>/          every clip, plus clips.txt and manifest.json
+  downloads/                 source video (deleted once its clips render)
+  transcripts/  logs/  ledger.db
 secrets/                     OAuth files (git-ignored)
 ```
 

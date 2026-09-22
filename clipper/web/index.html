@@ -112,7 +112,23 @@ button.go:hover:not(:disabled){filter:brightness(1.08)}
 .clip .meta{padding:10px 12px}
 .clip .hook{font-weight:600;font-size:.86rem;line-height:1.35}
 .clip .sub{color:var(--muted);font-size:.74rem;margin-top:4px;font-family:"JetBrains Mono",monospace}
+.clip.rejected{opacity:.42}
+.clip.rejected video{filter:grayscale(1)}
+.acts{display:flex;gap:6px;padding:0 12px 12px}
+.act{flex:1;padding:6px 0;border-radius:8px;border:1px solid var(--line);background:transparent;
+  color:var(--muted);cursor:pointer;font-size:.76rem;font-weight:600}
+.act:hover{border-color:var(--muted);color:var(--ink)}
+.act[aria-pressed=true].yes{background:color-mix(in srgb,var(--good) 16%,transparent);
+  border-color:var(--good);color:var(--good)}
+.act[aria-pressed=true].no{background:color-mix(in srgb,#E4736A 16%,transparent);
+  border-color:#E4736A;color:#E4736A}
+.act.redo{flex:0 0 40px}
 .runhead{display:flex;align-items:baseline;gap:12px;margin:20px 0 12px}
+.runhead .sp{flex:1}
+.runbtn{padding:5px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;
+  color:var(--muted);cursor:pointer;font-size:.76rem}
+.runbtn:hover{border-color:var(--muted);color:var(--ink)}
+.runbtn.danger:hover{border-color:#E4736A;color:#E4736A}
 .runhead h3{font-size:.95rem}
 .runhead .when{font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--muted)}
 .empty{color:var(--muted);padding:64px 24px;text-align:center;border:1px dashed var(--line);
@@ -259,6 +275,15 @@ es.onmessage = ev => {
   }
 };
 
+async function post(url, body){
+  const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"},
+                              body: JSON.stringify(body)});
+  if (r.ok) return r.json();
+  const e = await r.json().catch(() => ({error: `${url} failed`}));
+  alert(e.error || "that didn't work");
+  return null;
+}
+
 function bytes(n){ return n > 1e6 ? (n/1048576).toFixed(1)+" MB" : Math.round(n/1024)+" KB"; }
 
 async function loadRuns(){
@@ -271,7 +296,19 @@ async function loadRuns(){
     const head = document.createElement("div");
     head.className = "runhead";
     head.innerHTML = `<h3>${run.clips.length} clip${run.clips.length>1?"s":""}</h3>
-                      <span class="when">${run.name}</span>`;
+                      <span class="when">${run.name}</span><span class="sp"></span>`;
+    const reveal = document.createElement("button");
+    reveal.className = "runbtn"; reveal.textContent = "Open folder";
+    reveal.onclick = () => post("/api/reveal", {run: run.name});
+    const del = document.createElement("button");
+    del.className = "runbtn danger"; del.textContent = "Delete";
+    del.onclick = async () => {
+      if (!confirm(`Delete ${run.clips.length} clip(s) from ${run.name}?\n\n` +
+                   `The clips go back in the render queue — the source is untouched.`)) return;
+      await post("/api/delete_run", {run: run.name});
+      loadRuns();
+    };
+    head.append(reveal, del);
     host.appendChild(head);
     const grid = document.createElement("div");
     grid.className = "grid";
@@ -300,6 +337,42 @@ async function loadRuns(){
       sub.textContent = `${c.seconds ? c.seconds + "s · " : ""}${bytes(c.size)}`;
       meta.append(hook, sub);
       card.appendChild(meta);
+
+      const acts = document.createElement("div");
+      acts.className = "acts";
+      const yes = document.createElement("button");
+      yes.className = "act yes"; yes.textContent = "Keep";
+      const no = document.createElement("button");
+      no.className = "act no"; no.textContent = "Reject";
+      const redo = document.createElement("button");
+      redo.className = "act redo"; redo.title = "Re-render with the styles on the left";
+      redo.textContent = "↻";
+
+      const paint = d => {
+        yes.setAttribute("aria-pressed", d === "approved");
+        no.setAttribute("aria-pressed", d === "rejected");
+        card.classList.toggle("rejected", d === "rejected");
+      };
+      paint(c.decision);
+
+      const decide = async want => {
+        // clicking the active choice clears it, so a decision is never a trap
+        const next = c.decision === want ? "none" : want;
+        const r = await post("/api/decision", {clip: c.id, decision: next});
+        if (!r) return;
+        c.decision = next === "none" ? null : next;
+        paint(c.decision);
+      };
+      yes.onclick = () => decide("approved");
+      no.onclick  = () => decide("rejected");
+      redo.onclick = async () => {
+        const r = await post("/api/rerender", {
+          clip: c.id, captions: $("#captions").value,
+          hook: $("#hook").value, layout: $("#layout").value});
+        if (r) showLog();
+      };
+      acts.append(yes, no, redo);
+      card.appendChild(acts);
       grid.appendChild(card);
     }
     host.appendChild(grid);
