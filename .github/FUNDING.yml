@@ -1,0 +1,11 @@
+# Adds a "Sponsor" button to the repo header.
+# Uncomment only the lines you have actually set up — GitHub hides entries
+# that do not resolve, but an unset one is easy to forget about.
+
+# github: [umschaudhary]        # needs GitHub Sponsors enrolment (identity + payout account)
+# ko_fi: umschaudhary           # works in more countries, no GitHub enrolment
+# buy_me_a_coffee: umschaudhary
+# open_collective: verticlip    # best if this ever takes contributors/expenses
+# polar: umschaudhary
+# liberapay: umschaudhary
+# custom: ["https://…"]         # any payment link, e.g. Stripe or PayPal.me

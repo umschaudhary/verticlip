@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>verticlip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --stage:#0C0E15; --ground:#F6F6F8; --surface:#FFFFFF; --ink:#13151D;
+  --muted:#5E6478; --line:#E2E3E9; --accent:#FF5C35; --accent-ink:#D8390F;
+  --good:#2F8F5B; --warn:#B0761A; --radius:12px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C0E15; --surface:#151925; --ink:#EDEEF4; --muted:#9AA1B8;
+    --line:#242938; --accent:#FF7350; --accent-ink:#FF7350; --good:#5CC48A; --warn:#E0A94A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C0E15; --surface:#151925; --ink:#EDEEF4; --muted:#9AA1B8;
+  --line:#242938; --accent:#FF7350; --accent-ink:#FF7350; --good:#5CC48A; --warn:#E0A94A;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:"Bricolage Grotesque",sans-serif;margin:0;letter-spacing:-.02em;text-wrap:balance}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+header{background:var(--stage);color:#EDEEF4;padding:14px 22px;display:flex;align-items:center;gap:16px}
+.brand{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:-.03em}
+.brand span{color:var(--accent)}
+header .sp{flex:1}
+.pill{font-family:"JetBrains Mono",monospace;font-size:.68rem;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;padding:4px 10px;border-radius:20px;border:1px solid #333A4D;color:#AEB4C8}
+.pill.run{border-color:var(--accent);color:var(--accent)}
+.pill.done{border-color:var(--good);color:var(--good)}
+.pill.fail{border-color:#E4736A;color:#E4736A}
+
+main{display:grid;grid-template-columns:312px 1fr;gap:0;min-height:calc(100vh - 54px)}
+@media(max-width:840px){main{grid-template-columns:1fr}}
+aside{border-right:1px solid var(--line);padding:22px;background:var(--surface)}
+@media(max-width:840px){aside{border-right:0;border-bottom:1px solid var(--line)}}
+section.out{padding:22px;min-width:0}
+
+label{display:block;font-family:"JetBrains Mono",monospace;font-size:.66rem;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+input[type=text],input[type=number],select{
+  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;
+  background:var(--ground);color:var(--ink)}
+.row{display:grid;grid-template-columns:1fr 84px;gap:10px}
+.hint{color:var(--muted);font-size:.8rem;margin-top:6px}
+button.go{
+  margin-top:20px;width:100%;padding:12px;border:0;border-radius:10px;background:var(--accent);
+  color:#1A0B06;font-weight:600;cursor:pointer}
+button.go:disabled{opacity:.5;cursor:not-allowed}
+button.go:hover:not(:disabled){filter:brightness(1.08)}
+.note{margin-top:12px;font-size:.8rem;color:var(--muted);border-left:2px solid var(--line);padding-left:10px}
+
+/* live preview — mirrors what the renderer will do, before you wait for it */
+.workspace{display:grid;grid-template-columns:268px 1fr;gap:26px;align-items:start}
+@media(max-width:1020px){.workspace{grid-template-columns:1fr}}
+.workpane{min-width:0}
+.pv{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px;position:sticky;top:22px}
+.pvframe{
+  position:relative;width:100%;max-width:216px;margin:0 auto;aspect-ratio:9/16;
+  border-radius:14px;overflow:hidden;background:#11151f;border:1px solid var(--line);
+}
+/* stand-in "footage": a recognisable subject so crop differences are visible */
+.pvshot{position:absolute;inset:0;background:
+  radial-gradient(38% 26% at 50% 34%, #C8A88B 0 58%, transparent 60%),
+  linear-gradient(#6E86B4 0 46%, #46618F 46% 100%);
+  background-size:cover}
+.pvshot::after{content:"";position:absolute;left:32%;right:32%;top:52%;bottom:0;
+  background:#2B3A57;border-radius:40% 40% 0 0}
+.pvblur{position:absolute;inset:0;filter:blur(13px) brightness(.55);transform:scale(1.25)}
+.pvpanel{position:absolute;left:6%;right:6%;border-radius:8px;overflow:hidden;
+  box-shadow:0 8px 22px -8px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.12)}
+.pvsafe{position:absolute;left:0;right:0;background:rgba(255,92,53,.13);pointer-events:none}
+.pvsafe.t{top:0;height:10%} .pvsafe.b{bottom:0;height:22%}
+.pvcap{position:absolute;left:8%;right:8%;text-align:center;line-height:1.2;
+  font-family:"Bricolage Grotesque",sans-serif}
+.pvtitle{position:absolute;left:7%;right:7%;top:12%;text-align:center;line-height:1.25;
+  font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:.5rem;color:#fff;
+  letter-spacing:.01em}
+.pvtitle span{display:inline;padding:1px 3px}
+.pvnote{text-align:center;color:var(--muted);font-size:.7rem;margin-top:8px;
+  font-family:"JetBrains Mono",monospace}
+
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab{padding:6px 13px;border-radius:20px;border:1px solid var(--line);background:transparent;
+  cursor:pointer;font-size:.85rem;color:var(--muted)}
+.tab[aria-selected=true]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+
+#log{background:var(--surface);border:1px solid var(--line);color:var(--ink);
+  border-radius:var(--radius);padding:16px 18px;
+  font-family:"JetBrains Mono",monospace;font-size:.76rem;line-height:1.7;
+  min-height:240px;max-height:calc(100vh - 190px);overflow:auto;
+  white-space:pre-wrap;word-break:break-word}
+#log .hl{color:var(--accent)}
+#log .dim{color:#5A6377}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
+.clip{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.clip video{width:100%;aspect-ratio:9/16;background:#000;display:block}
+.clip .meta{padding:10px 12px}
+.clip .hook{font-weight:600;font-size:.86rem;line-height:1.35}
+.clip .sub{color:var(--muted);font-size:.74rem;margin-top:4px;font-family:"JetBrains Mono",monospace}
+.runhead{display:flex;align-items:baseline;gap:12px;margin:20px 0 12px}
+.runhead h3{font-size:.95rem}
+.runhead .when{font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--muted)}
+.empty{color:var(--muted);padding:64px 24px;text-align:center;border:1px dashed var(--line);
+  border-radius:var(--radius);background:var(--surface)}
+.empty b{display:block;color:var(--ink);font-family:"Bricolage Grotesque",sans-serif;
+  font-size:1rem;margin-bottom:6px}
+/* keep the working area readable instead of stretching across a wide display */
+section.out{max-width:1240px}
+
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">verti<span>clip</span></div>
+  <div class="sp"></div>
+  <div class="pill" id="state">idle</div>
+</header>
+
+<main>
+  <aside>
+    <h2 style="font-size:1.05rem">New clip</h2>
+    <p class="hint">Leave the URL empty to re-render clips that are already queued, without downloading again.</p>
+
+    <label for="url">Video URL</label>
+    <input type="text" id="url" placeholder="https://youtu.be/…" autocomplete="off">
+
+    <div class="row">
+      <div>
+        <label for="layout">Framing</label>
+        <select id="layout"></select>
+      </div>
+      <div>
+        <label for="clips">Clips</label>
+        <input type="number" id="clips" min="1" max="20" value="1">
+      </div>
+    </div>
+
+    <label for="captions">Captions</label>
+    <select id="captions"></select>
+
+    <label for="hook">Title card</label>
+    <select id="hook"></select>
+
+    <label for="pick">Choose clips by</label>
+    <select id="pick"></select>
+    <p class="hint" id="pickhint"></p>
+
+    <button class="go" id="go">Start</button>
+    <p class="note">Nothing is uploaded. Publishing stays a deliberate step in the CLI.</p>
+  </aside>
+
+  <section class="out">
+   <div class="workspace">
+    <div class="pv">
+      <label style="margin:0 0 8px">Preview</label>
+      <div class="pvframe" id="pvframe" aria-label="preview of the chosen styles"></div>
+      <div class="pvnote" id="pvnote"></div>
+      <p class="hint" style="text-align:center;margin-top:10px">
+        A mock, not your footage — it shows what the styles do before you spend a render on them.
+      </p>
+    </div>
+    <div class="workpane">
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tabLog"  role="tab" aria-selected="true">Progress</button>
+      <button class="tab" id="tabOut"  role="tab" aria-selected="false">Clips</button>
+    </div>
+    <div id="paneLog">
+      <div class="empty" id="logEmpty">
+        <b>Nothing running</b>
+        Set your options on the left and press Start. Progress appears here line by line.
+      </div>
+      <div id="log" hidden></div>
+    </div>
+    <div id="paneOut" hidden>
+      <div id="runs"><div class="empty"><b>No clips yet</b>Finished clips show up here.</div></div>
+    </div>
+    </div>
+   </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const PICK_HINT = {
+  llm:    "Reads the transcript and picks the strongest moments.",
+  scenes: "Starts each clip on a shot change. Skips transcription when captions are off.",
+  even:   "Spaces clips across the runtime. Skips transcription when captions are off.",
+};
+
+function fill(sel, values, chosen){
+  sel.innerHTML = "";
+  for (const v of values){
+    const o = document.createElement("option");
+    o.value = v; o.textContent = v;
+    if (v === chosen) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
+async function loadOptions(){
+  const r = await fetch("/api/options");
+  const o = await r.json();
+  fill($("#captions"), o.captions, o.defaults.captions);
+  fill($("#hook"),     o.hooks,    o.defaults.hook);
+  fill($("#layout"),   o.layouts,  o.defaults.layout);
+  fill($("#pick"),     o.picks,    o.defaults.pick);
+  $("#clips").value = o.defaults.clips;
+  $("#pickhint").textContent = PICK_HINT[o.defaults.pick] || "";
+  setState(o.state, o.busy);
+}
+
+$("#pick").addEventListener("change", e => {
+  $("#pickhint").textContent = PICK_HINT[e.target.value] || "";
+});
+
+function setState(state, busy){
+  const el = $("#state");
+  el.textContent = state;
+  el.className = "pill" + (state === "running" ? " run" : state === "done" ? " done"
+                          : state === "failed" ? " fail" : "");
+  $("#go").disabled = !!busy || state === "running";
+  $("#go").textContent = (busy || state === "running") ? "Running…" : "Start";
+}
+
+function logLine(text){
+  const box = $("#log");
+  if (box.hidden){ box.hidden = false; $("#logEmpty").hidden = true; }
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  const span = document.createElement("div");
+  if (/rendered|clip\(s\) →|posted/.test(text)) span.className = "hl";
+  span.textContent = text;
+  box.appendChild(span);
+  while (box.childElementCount > 1200) box.removeChild(box.firstChild);
+  if (atBottom) box.scrollTop = box.scrollHeight;   // don't yank the view if they scrolled up
+}
+
+const es = new EventSource("/api/events");
+es.onmessage = ev => {
+  const m = JSON.parse(ev.data);
+  if (m.kind === "log") logLine(m.text);
+  if (m.kind === "state"){
+    setState(m.text, m.text === "running");
+    if (m.text === "done" || m.text === "failed"){ loadRuns(); showOut(); }
+  }
+};
+
+function bytes(n){ return n > 1e6 ? (n/1048576).toFixed(1)+" MB" : Math.round(n/1024)+" KB"; }
+
+async function loadRuns(){
+  const r = await fetch("/api/runs");
+  const {runs} = await r.json();
+  const host = $("#runs");
+  if (!runs.length){ host.innerHTML = '<div class="empty">No clips yet.</div>'; return; }
+  host.innerHTML = "";
+  for (const run of runs){
+    const head = document.createElement("div");
+    head.className = "runhead";
+    head.innerHTML = `<h3>${run.clips.length} clip${run.clips.length>1?"s":""}</h3>
+                      <span class="when">${run.name}</span>`;
+    host.appendChild(head);
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    for (const c of run.clips){
+      const card = document.createElement("div");
+      card.className = "clip";
+      const v = document.createElement("video");
+      const rel = `${encodeURIComponent(run.name)}/${encodeURIComponent(c.file)}`;
+      v.src = `/media/${rel}`;
+      v.poster = `/thumb/${rel}`;   // browsers will not paint a frame from metadata alone
+      v.controls = true; v.preload = "none"; v.playsInline = true;
+      card.appendChild(v);
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const hook = document.createElement("div");
+      hook.className = "hook";
+      // scenes/even picks have no hook, and their title is just the campaign name —
+      // showing that on every card says nothing, so fall back to the clip id
+      // scenes/even picks have no hook and title is just the campaign name; showing
+      // that on every card says nothing, so fall back to the clip id
+      const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const titleIsCampaign = norm(c.title) === norm(run.campaign);
+      hook.textContent = c.hook || (c.title && !titleIsCampaign ? c.title : c.id);
+      const sub = document.createElement("div");
+      sub.className = "sub";
+      sub.textContent = `${c.seconds ? c.seconds + "s · " : ""}${bytes(c.size)}`;
+      meta.append(hook, sub);
+      card.appendChild(meta);
+      grid.appendChild(card);
+    }
+    host.appendChild(grid);
+  }
+}
+
+function showLog(){ $("#paneLog").hidden=false; $("#paneOut").hidden=true;
+  $("#tabLog").setAttribute("aria-selected","true"); $("#tabOut").setAttribute("aria-selected","false"); }
+function showOut(){ $("#paneLog").hidden=true; $("#paneOut").hidden=false;
+  $("#tabLog").setAttribute("aria-selected","false"); $("#tabOut").setAttribute("aria-selected","true"); loadRuns(); }
+$("#tabLog").onclick = showLog;
+$("#tabOut").onclick = showOut;
+
+$("#go").onclick = async () => {
+  const body = {
+    url: $("#url").value.trim(),
+    clips: parseInt($("#clips").value || "1", 10),
+    captions: $("#captions").value, hook: $("#hook").value,
+    layout: $("#layout").value, pick: $("#pick").value,
+  };
+  $("#go").disabled = true;
+  showLog();
+  const r = await fetch("/api/run", {method:"POST", headers:{"Content-Type":"application/json"},
+                                     body: JSON.stringify(body)});
+  if (!r.ok){
+    const e = await r.json().catch(()=>({error:"could not start"}));
+    logLine("• " + (e.error || "could not start"));
+    $("#go").disabled = false;
+  }
+};
+
+// ── live preview ────────────────────────────────────────────────
+// Mirrors the renderer's own rules: card insets the whole frame and clears the
+// app UI; crop modes fill the frame; each caption style is drawn as it renders.
+const CAP_SAMPLE = ["THAT", "CHANGES", "EVERYTHING"];
+
+function drawPreview(){
+  const layout = $("#layout").value, cap = $("#captions").value, title = $("#hook").value;
+  const f = $("#pvframe");
+  f.innerHTML = "";
+
+  const shot = document.createElement("div");
+  shot.className = "pvshot";
+
+  if (layout === "card" || layout === "blur_bg"){
+    const bg = document.createElement("div");
+    bg.className = "pvblur";
+    bg.appendChild(shot.cloneNode(true));
+    f.appendChild(bg);
+    const panel = document.createElement("div");
+    panel.className = "pvpanel";
+    if (layout === "card"){          // 70% of height, centred in the usable band
+      panel.style.height = "44%"; panel.style.top = "50%";
+      panel.style.transform = "translateY(-50%)";
+    } else {                          // blur_bg: the frame at its own aspect
+      panel.style.aspectRatio = "16/9"; panel.style.top = "50%";
+      panel.style.transform = "translateY(-50%)"; panel.style.borderRadius = "0";
+      panel.style.left = "0"; panel.style.right = "0"; panel.style.border = "0";
+    }
+    const inner = shot.cloneNode(true);
+    inner.style.backgroundSize = "cover";
+    panel.appendChild(inner);
+    f.appendChild(panel);
+  } else {
+    // auto / smart / center all fill the frame — the crop is what differs
+    shot.style.transform = layout === "center" ? "scale(1.6)" : "scale(1.6) translateX(-6%)";
+    f.appendChild(shot);
+  }
+
+  for (const cls of ["t","b"]){
+    const z = document.createElement("div"); z.className = "pvsafe " + cls; f.appendChild(z);
+  }
+
+  if (title !== "none"){
+    const t = document.createElement("div");
+    t.className = "pvtitle";
+    // one short line: a two-line hook at this scale just collides with the subject
+    const inner = document.createElement("span");
+    inner.textContent = "THE HOOK LINE";
+    if (title === "boxed"){ inner.style.background = "rgba(0,0,0,.78)";
+                            inner.style.boxDecorationBreak = "clone"; }
+    if (title === "clean"){ inner.style.textShadow = "0 0 2px #000, 1px 1px 2px #000"; }
+    if (title === "glow"){  inner.style.textShadow = "0 0 7px rgba(255,255,255,.9), 0 0 3px #000"; }
+    t.appendChild(inner);
+    f.appendChild(t);
+  }
+
+  if (cap !== "none"){
+    const c = document.createElement("div");
+    c.className = "pvcap";
+    c.style.top = "66%";
+    if (cap === "boxed"){
+      c.innerHTML = `<span style="background:#000;color:#fff;font-weight:800;font-size:.6rem;
+        padding:2px 4px;box-decoration-break:clone;-webkit-box-decoration-break:clone">
+        ${CAP_SAMPLE[0]} <span style="color:#FFD400">${CAP_SAMPLE[1]}</span> ${CAP_SAMPLE[2]}</span>`;
+    } else if (cap === "pop"){
+      c.innerHTML = `<span style="color:#fff;font-weight:800;font-size:.95rem;
+        text-shadow:0 0 5px #FFD400,0 2px 3px #000">${CAP_SAMPLE[1]}</span>`;
+    } else if (cap === "karaoke"){
+      c.innerHTML = `<span style="color:#fff;font-weight:800;font-size:.62rem;
+        text-shadow:0 1px 3px #000">${CAP_SAMPLE[0]}
+        <span style="color:#FFD400;text-shadow:0 0 6px #FFD400">${CAP_SAMPLE[1]}</span>
+        ${CAP_SAMPLE[2]}</span>`;
+    } else if (cap === "lyric"){
+      c.style.top = "50%";
+      c.innerHTML = `<span style="color:#fff;font-weight:600;font-size:.5rem;
+        text-shadow:0 0 6px rgba(255,255,255,.9)">that changes</span>`;
+    }
+    f.appendChild(c);
+  }
+
+  const notes = {
+    card: "whole frame kept · clear of app UI",
+    blur_bg: "whole frame · letterboxed",
+    auto: "cropped to 9:16 · follows the speaker",
+    smart: "cropped to 9:16 · never splits",
+    center: "centre crop · no tracking",
+  };
+  $("#pvnote").textContent = notes[layout] || "";
+}
+
+for (const id of ["#layout","#captions","#hook"]) $(id).addEventListener("change", drawPreview);
+
+loadOptions().then(drawPreview);
+loadRuns();
+</script>
+</body>
+</html>

@@ -1,0 +1,343 @@
+<title>verticlip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --stage:#0C0E15;          /* the dark field a video sits on */
+  --stage-2:#151925;
+  --ground:#F6F6F8;
+  --surface:#FFFFFF;
+  --ink:#13151D;
+  --muted:#5E6478;
+  --line:#E2E3E9;
+  --accent:#FF5C35;         /* playhead / record */
+  --accent-ink:#D8390F;
+  --good:#2F8F5B;
+  --warn:#B0761A;
+  --radius:14px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C0E15; --surface:#151925; --ink:#EDEEF4; --muted:#9AA1B8;
+    --line:#242938; --accent:#FF7350; --accent-ink:#FF7350;
+    --good:#5CC48A; --warn:#E0A94A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C0E15; --surface:#151925; --ink:#EDEEF4; --muted:#9AA1B8;
+  --line:#242938; --accent:#FF7350; --accent-ink:#FF7350;
+  --good:#5CC48A; --warn:#E0A94A;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{animation:none!important;transition:none!important} }
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;margin:0;text-wrap:balance;letter-spacing:-.02em}
+h1{font-size:clamp(2.4rem,6vw,4.1rem);line-height:1.02;font-weight:800}
+h2{font-size:clamp(1.6rem,3.4vw,2.3rem);line-height:1.12;font-weight:600}
+h3{font-size:1.06rem;line-height:1.3;font-weight:600}
+p{margin:0}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-size:.85em}
+a{color:var(--accent-ink)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+/* ── hero: a lit stage ───────────────────────────────── */
+.hero{background:var(--stage);color:#EDEEF4;padding:26px 0 0;position:relative;overflow:hidden}
+.hero::after{ /* soft blurred backdrop, the product's own signature */
+  content:"";position:absolute;inset:-20% -10% auto -10%;height:70%;
+  background:radial-gradient(60% 70% at 30% 20%,rgba(255,92,53,.20),transparent 70%),
+             radial-gradient(50% 60% at 78% 10%,rgba(90,120,255,.16),transparent 70%);
+  filter:blur(40px);pointer-events:none;
+}
+.hero>*{position:relative}
+nav{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.brand{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.22rem;letter-spacing:-.03em;color:#fff;text-decoration:none}
+.brand span{color:var(--accent)}
+nav .spacer{flex:1}
+nav a:not(.brand){color:#AEB4C8;text-decoration:none;font-size:.92rem}
+nav a:not(.brand):hover{color:#fff}
+
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center;padding:60px 0 76px}
+@media(max-width:860px){.hero-grid{grid-template-columns:1fr;gap:38px;padding:44px 0 56px}}
+.kicker{
+  font-family:"JetBrains Mono",monospace;font-size:.7rem;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent);margin-bottom:20px;
+}
+.hero p.lede{color:#B8BECF;font-size:1.14rem;margin-top:20px;max-width:46ch}
+.hero p.lede b{color:#fff;font-weight:600}
+
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+.btn{
+  display:inline-flex;align-items:center;gap:9px;padding:12px 20px;border-radius:10px;
+  font-weight:600;font-size:.95rem;text-decoration:none;border:1px solid transparent;
+}
+.btn.primary{background:var(--accent);color:#1A0B06}
+.btn.primary:hover{background:#ff7350}
+.btn.ghost{border-color:#333A4D;color:#DDE1EC}
+.btn.ghost:hover{border-color:#5A637B}
+
+.term{
+  margin-top:30px;background:#080A10;border:1px solid #232838;border-radius:12px;
+  padding:16px 18px;font-family:"JetBrains Mono",monospace;font-size:.82rem;
+  color:#C6CCDD;overflow-x:auto;
+}
+.term .p{color:#4B5468;user-select:none}
+.term .c{color:var(--accent)}
+.term .d{color:#6B748C}
+
+/* the 9:16 frame — the thing this tool makes */
+.frame-demo{display:flex;justify-content:center}
+.phone{
+  width:min(250px,64vw);aspect-ratio:9/16;border-radius:20px;position:relative;
+  background:linear-gradient(168deg,#2A3348,#131826 60%);
+  border:1px solid #2C3346;
+  box-shadow:0 30px 70px -28px rgba(0,0,0,.85);overflow:hidden;
+}
+.phone .safe{position:absolute;left:0;right:0;background:rgba(255,92,53,.11)}
+.phone .safe.t{top:0;height:10%}
+.phone .safe.b{bottom:0;height:22%}
+.phone .card-in{
+  position:absolute;left:6%;right:6%;top:50%;transform:translateY(-50%);
+  aspect-ratio:16/9;border-radius:9px;background:linear-gradient(135deg,#55617E,#39415A);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 10px 30px -10px rgba(0,0,0,.6);
+}
+.phone .cap{
+  position:absolute;left:12%;right:12%;top:72%;text-align:center;
+  font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:.86rem;
+  color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.7);letter-spacing:.01em;
+}
+.phone .cap i{color:var(--accent);font-style:normal}
+.frame-label{
+  text-align:center;margin-top:14px;font-family:"JetBrains Mono",monospace;
+  font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:#6B748C;
+}
+
+/* ── sections ────────────────────────────────────────── */
+section{padding:76px 0}
+.sec-kicker{
+  font-family:"JetBrains Mono",monospace;font-size:.7rem;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent-ink);margin-bottom:12px;
+}
+.sec-lede{color:var(--muted);margin-top:14px;max-width:62ch}
+
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-top:38px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.step .n{
+  font-family:"JetBrains Mono",monospace;font-size:.7rem;font-weight:600;color:var(--accent-ink);
+  letter-spacing:.12em;
+}
+.step h3{margin:9px 0 6px}
+.step p{color:var(--muted);font-size:.93rem}
+
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:18px;margin-top:38px}
+.why div{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.why h3{margin-bottom:6px}
+.why p{color:var(--muted);font-size:.93rem}
+.why .tag{
+  display:inline-block;font-family:"JetBrains Mono",monospace;font-size:.62rem;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);
+  background:color-mix(in srgb,var(--accent) 12%,transparent);
+  padding:3px 8px;border-radius:20px;margin-bottom:10px;
+}
+
+.scroll{overflow-x:auto;margin-top:34px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;padding:13px 18px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:"JetBrains Mono",monospace;font-size:.66rem;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.k{font-family:"JetBrains Mono",monospace;font-size:.84rem;white-space:nowrap;color:var(--accent-ink)}
+
+.install{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:26px;margin-top:34px}
+.install pre{
+  margin:0;background:var(--stage);color:#C6CCDD;border-radius:10px;padding:18px;
+  overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:.84rem;line-height:1.75;
+}
+.install pre .p{color:#4B5468}
+.install pre .d{color:#6B748C}
+
+.honest{border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 7%,transparent);
+        padding:20px 24px;border-radius:0 var(--radius) var(--radius) 0;margin-top:34px}
+.honest h3{margin-bottom:8px}
+.honest ul{margin:10px 0 0;padding-left:20px;color:var(--muted);font-size:.93rem}
+.honest li{margin-bottom:5px}
+
+.rights{background:var(--stage);color:#C9CEDE;border-radius:var(--radius);padding:30px 32px;margin-top:34px}
+.rights h3{color:#fff;margin-bottom:10px}
+.rights p{font-size:.95rem;max-width:66ch}
+.rights p+p{margin-top:10px}
+
+footer{border-top:1px solid var(--line);padding:34px 0 60px;color:var(--muted);font-size:.9rem}
+footer a{color:var(--muted)}
+.foot{display:flex;gap:26px;flex-wrap:wrap;align-items:center}
+.foot .spacer{flex:1}
+</style>
+
+<div class="hero">
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="#top">verti<span>clip</span></a>
+      <div class="spacer"></div>
+      <a href="#how">How it works</a>
+      <a href="#why">Why</a>
+      <a href="#install">Install</a>
+      <a href="#status">Status</a>
+      <a href="https://github.com/umschaudhary/verticlip">GitHub</a>
+    </nav>
+
+    <div class="hero-grid" id="top">
+      <div>
+        <div class="kicker">Local-first · MIT · No API key</div>
+        <h1>Long video in.<br>Vertical clips out.</h1>
+        <p class="lede">Paste a link. Whisper transcribes it, a model on <b>your own machine</b> picks the moments worth keeping, and ffmpeg renders captioned 9:16 clips that track the speaker.</p>
+        <div class="cta">
+          <a class="btn primary" href="#install">Get started</a>
+          <a class="btn ghost" href="https://github.com/umschaudhary/verticlip">View source</a>
+        </div>
+        <div class="term">
+<span class="p">$</span> <span class="c">./clip</span> https://youtu.be/… 6 -c pop -l card
+<span class="d">▸ 6 clip(s) · captions: pop · layout: card · not posting</span>
+<span class="d">  ── ingest ── transcribe ── pick ── render ──</span>
+<span class="d">  6 clip(s) → data/runs/2026-09-23_0114_XYu20kFO/</span>
+        </div>
+      </div>
+
+      <div class="frame-demo">
+        <div>
+          <div class="phone">
+            <div class="safe t"></div>
+            <div class="safe b"></div>
+            <div class="card-in"></div>
+            <div class="cap">THAT <i>CHANGES</i> EVERYTHING</div>
+          </div>
+          <div class="frame-label">card layout · app-UI safe zones shown</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section id="how">
+    <div class="sec-kicker">How it works</div>
+    <h2>Four stages, all on your machine</h2>
+    <p class="sec-lede">Every stage is idempotent and its state lives in a local SQLite ledger, so a run can be killed and restarted and it picks up where it stopped.</p>
+    <div class="steps">
+      <div class="step"><div class="n">01 / INGEST</div><h3>Fetch the source</h3><p>A YouTube link or a local file. Downloads at 1080p by default, because a 9:16 crop keeps only 56% of the width and 720p would mean upscaling 2.7×.</p></div>
+      <div class="step"><div class="n">02 / UNDERSTAND</div><h3>Find the moments</h3><p>Whisper produces word-level timings; a local Ollama model reads the transcript and scores candidate clips. Or skip the words entirely and cut on shot changes.</p></div>
+      <div class="step"><div class="n">03 / RENDER</div><h3>Frame and caption</h3><p>Crops that follow the speaker and step at scene cuts, stacked split for two-person scenes, five caption styles burned in from the word timings.</p></div>
+      <div class="step"><div class="n">04 / PUBLISH</div><h3>Post, or don't</h3><p>Optional upload to YouTube, Instagram and TikTok with per-platform caps and spacing. Nothing leaves your machine unless you ask for it.</p></div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="sec-kicker">Why this one</div>
+    <h2>The parts other clippers skip</h2>
+    <div class="why">
+      <div>
+        <div class="tag">Framing</div>
+        <h3>Card layout</h3>
+        <p>A 9:16 crop throws away 44% of a 16:9 frame. Card mode keeps all of it as an inset panel over a blurred backdrop — positioned clear of the like and share buttons rather than running underneath them.</p>
+      </div>
+      <div>
+        <div class="tag">Framing</div>
+        <h3>Crops that respect cuts</h3>
+        <p>The crop follows the speaker, then <em>steps</em> at a shot change instead of gliding across it. Two faces on screen become a stacked split automatically.</p>
+      </div>
+      <div>
+        <div class="tag">Music</div>
+        <h3>Beat-cut edits mode</h3>
+        <p>Supply a track and a folder of footage; onset detection finds the tempo and cuts the shots to it, with transitions, grading and lyrics on screen. Cuts land within 3 frames of the beat.</p>
+      </div>
+      <div>
+        <div class="tag">Workflow</div>
+        <h3>Campaigns and payouts</h3>
+        <p>Group sources, styling and posting rules per campaign, record the rate, and get every posted link in a CSV ready for clipping-program submission forms.</p>
+      </div>
+      <div>
+        <div class="tag">Privacy</div>
+        <h3>Nothing phones home</h3>
+        <p>Whisper and Ollama both run locally. There is no default hosted endpoint — hosted models are opt-in and refuse to run without a key you provide.</p>
+      </div>
+      <div>
+        <div class="tag">Control</div>
+        <h3>Style it per run</h3>
+        <p>Captions, title card, framing and clip-selection strategy are all flags, not a rebuild. Re-render queued clips in a new style without re-downloading or re-transcribing.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-kicker">Options</div>
+    <h2>Everything is a flag</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Flag</th><th>Choices</th><th>What it changes</th></tr></thead>
+        <tbody>
+          <tr><td class="k">-c</td><td>boxed · pop · karaoke · lyric · none</td><td>Caption style, burned in from word-level timings</td></tr>
+          <tr><td class="k">-t</td><td>clean · glow · boxed · none</td><td>The opening hook title, or no title at all</td></tr>
+          <tr><td class="k">-l</td><td>auto · card · smart · center · blur_bg</td><td>Framing — crop and follow, or keep the whole frame</td></tr>
+          <tr><td class="k">-p</td><td>llm · scenes · even</td><td>How clips are chosen. <code>scenes</code> and <code>even</code> skip transcription entirely</td></tr>
+          <tr><td class="k">--post</td><td>—</td><td>The only way anything is ever uploaded</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="sec-kicker">Install</div>
+    <h2>Three commands</h2>
+    <p class="sec-lede">macOS and Linux. Python 3.11+, and an ffmpeg built with libass — the installer checks for both and tells you exactly what is missing.</p>
+    <div class="install">
+      <pre><span class="p">$</span> git clone https://github.com/umschaudhary/verticlip &amp;&amp; cd verticlip
+<span class="p">$</span> ./install.sh                      <span class="d"># ffmpeg, venv, dependencies</span>
+<span class="p">$</span> ollama pull qwen2.5:7b-instruct   <span class="d"># the highlight picker</span>
+
+<span class="p">$</span> ./clip                            <span class="d"># asks for a URL and the rest</span></pre>
+    </div>
+    <div class="honest">
+      <h3>A desktop app is not ready yet</h3>
+      <p style="color:var(--muted);font-size:.93rem">This is a CLI today. A packaged macOS build is planned, and the terminal path will stay — it is how it runs on Linux and under cron.</p>
+    </div>
+  </section>
+
+  <section id="status">
+    <div class="sec-kicker">Status</div>
+    <h2>What works, and what doesn't</h2>
+    <p class="sec-lede">Written plainly, because finding this out after cloning is worse than reading it here.</p>
+    <div class="honest">
+      <h3>Known limits</h3>
+      <ul>
+        <li><b>Instagram and TikTok publishers are written but unproven</b> — no live upload has been made. YouTube has.</li>
+        <li><b>Facecam layout</b> — screen-share with a corner camera is not detected yet.</li>
+        <li><b>MediaPipe</b> aborts on some macOS builds, so face detection falls back to OpenCV cascades. A subprocess probe refuses it rather than crashing a render.</li>
+        <li><b>Speed</b> — a 29-minute source takes about 16 minutes end to end, most of it Whisper.</li>
+      </ul>
+    </div>
+    <div class="rights">
+      <h3>Clip only what you have the right to clip</h3>
+      <p>Most YouTube videos are all-rights-reserved. Re-uploading someone else's work can earn a Content ID claim or a copyright strike, and "a script did it" is not a defence.</p>
+      <p>Legitimate sources: your own footage, Creative Commons material, content you have written permission for, and creator clipping programs that explicitly grant the right to clip a specific asset — which is exactly what the campaign system is built for.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="foot">
+      <span>MIT licensed</span>
+      <a href="https://github.com/umschaudhary/verticlip">Source</a>
+      <a href="https://github.com/umschaudhary/verticlip/blob/main/README.md">Docs</a>
+      <a href="https://github.com/umschaudhary/verticlip/issues">Issues</a>
+      <div class="spacer"></div>
+      <span>Built with ffmpeg, Whisper and Ollama</span>
+    </div>
+  </footer>
+</div>

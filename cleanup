@@ -136,8 +136,11 @@ def main() -> int:
             from clipper.config import load_config
             from clipper.ledger import Ledger
             led = Ledger(load_config(ROOT).data_dir / "ledger.db")
-            led.conn.execute("UPDATE sources SET video_path=NULL WHERE video_path LIKE ?",
-                             (f"{data}%",))
+            # A source with no file must go back to 'new', or the pipeline sees a
+            # finished source, never re-downloads it, and silently produces nothing.
+            led.conn.execute("UPDATE sources SET video_path=NULL, status='new' "
+                             "WHERE video_path LIKE ?", (f"{data}%",))
+            led.conn.execute("UPDATE sources SET status='new' WHERE video_path IS NULL")
             led.conn.execute("UPDATE clips SET render_path=NULL, status='planned' "
                              "WHERE status='rendered'")
             led.conn.commit()

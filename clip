@@ -12,6 +12,7 @@
 #                                            card = nothing cropped, clear of app UI
 #   ./clip                               ask for everything, step by step
 #   ./clip --render                      re-render queued clips, no questions
+#   ./clip --ui                          the local web UI
 #   ./clip --status                      what's in the ledger
 #   ./clip --last                        open the most recent run folder
 #
@@ -19,8 +20,12 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# uv and a plain venv both land the interpreter in .venv; fall back to uv run
 PY="${CLIPPER_PYTHON:-$HERE/.venv/bin/python}"
-[ -x "$PY" ] || PY="$(command -v python3)"
+if [ ! -x "$PY" ]; then
+  if command -v uv >/dev/null 2>&1; then PY="uv run --project $HERE python"
+  else PY="$(command -v python3)"; fi
+fi
 
 open_last() {
   local d
@@ -35,7 +40,8 @@ open_last() {
 
 case "${1:-}" in
   --last)   open_last; exit $? ;;
-  --status) exec "$PY" "$HERE/run.py" --status ;;
+  --status) exec $PY "$HERE/run.py" --status ;;
+  --ui)     shift; exec $PY "$HERE/run.py" --ui "$@" ;;
   -h|--help)
     sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit 0 ;;
@@ -44,7 +50,7 @@ esac
 # Defaults for the wizard come from config.yaml, so what it offers is what a
 # plain `python run.py` would do.
 defaults() {
-  "$PY" - <<'EOF' 2>/dev/null || echo "1 boxed clean"
+  $PY - <<'EOF' 2>/dev/null || echo "1 boxed clean"
 import sys
 sys.path.insert(0, ".")
 try:
@@ -136,7 +142,7 @@ fi
 echo "▸ ${URL:-<queued clips>}${URL:+  ·  $N clip(s)}${CAPS:+  ·  captions: $CAPS}${HOOK:+  ·  title: $HOOK}${PICK:+  ·  pick: $PICK}${LAYOUT:+  ·  layout: $LAYOUT}  ·  $([ "$POST" = yes ] && echo publishing || echo 'not posting')"
 log="$(mktemp -t clipper)"
 set +e
-"$PY" "$HERE/run.py" "${args[@]}" 2>&1 | tee "$log"
+$PY "$HERE/run.py" "${args[@]}" 2>&1 | tee "$log"
 rc=${PIPESTATUS[0]}
 set -e
 

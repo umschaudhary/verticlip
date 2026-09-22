@@ -1,0 +1,62 @@
+[project]
+name = "verticlip"
+version = "0.1.0"
+description = "Local-first vertical video clipper — long video in, captioned speaker-tracked 9:16 clips out."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+keywords = ["video", "ffmpeg", "whisper", "ollama", "shorts", "tiktok", "youtube-shorts"]
+classifiers = [
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Video",
+]
+
+dependencies = [
+  "pyyaml>=6.0",
+  "requests>=2.31",
+  "yt-dlp>=2024.8.6",
+  "gdown>=5.2",
+  "faster-whisper>=1.0.3",
+  # 5.x drops the objdetect module, which is what face-aware cropping needs
+  "opencv-python-headless>=4.9,<5",
+  "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# Publishing is opt-in: most people clip without ever uploading, and these pull
+# in a large dependency tree that a local-only run never touches.
+youtube = [
+  "google-api-python-client>=2.140",
+  "google-auth-oauthlib>=1.2",
+  "google-auth-httplib2>=0.2",
+]
+instagram = ["boto3>=1.34"]
+# Only needed if highlighter.provider is set to "anthropic"; the default is local Ollama.
+anthropic = ["anthropic>=0.34"]
+publish = ["verticlip[youtube,instagram]"]
+all = ["verticlip[youtube,instagram,anthropic]"]
+
+[project.scripts]
+verticlip = "clipper.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/umschaudhary/verticlip"
+Source = "https://github.com/umschaudhary/verticlip"
+Issues = "https://github.com/umschaudhary/verticlip/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["clipper"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"config.yaml" = "clipper/_default_config.yaml"
+
+[tool.uv]
+# Keep the resolver honest about the platform wheels faster-whisper needs.
+package = true

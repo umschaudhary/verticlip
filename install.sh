@@ -49,22 +49,31 @@ fi
 if [ -n "$FF" ]; then ok "ffmpeg with libass: $FF"
 else warn "ffmpeg with libass — captions cannot be burned in. macOS: brew install ffmpeg@7 · Debian/Ubuntu: sudo apt install ffmpeg"; fi
 
-# ── python ────────────────────────────────────────────────────
+# ── python ──────────────────────────────────────────────────
 note "python"
-PYBIN=""
-for c in python3.12 python3.11 python3; do
-  command -v "$c" >/dev/null 2>&1 || continue
-  "$c" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3,11) else 1)' && { PYBIN="$c"; break; }
-done
-if [ -z "$PYBIN" ]; then
-  warn "python 3.11+ — required"
+if command -v uv >/dev/null 2>&1; then
+  ok "uv $(uv --version 2>/dev/null | awk '{print $2}')"
+  echo "  syncing dependencies…"
+  # --extra all pulls the optional publishing + hosted-model extras too
+  if uv sync --extra all >/dev/null 2>&1; then ok "dependencies (uv sync)"
+  else warn "uv sync failed — run it yourself to see why"; fi
 else
-  ok "$($PYBIN --version)"
-  [ -d .venv ] || "$PYBIN" -m venv .venv
-  ./.venv/bin/python -m pip install --quiet --upgrade pip
-  echo "  installing dependencies…"
-  if ./.venv/bin/python -m pip install --quiet -r requirements.txt; then ok "python dependencies"
-  else warn "pip install -r requirements.txt failed — run it yourself to see why"; fi
+  warn "uv — the project's package manager. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
+  # fall back to a plain venv so the tool still works without uv
+  PYBIN=""
+  for c in python3.12 python3.11 python3; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    "$c" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3,11) else 1)' && { PYBIN="$c"; break; }
+  done
+  if [ -z "$PYBIN" ]; then
+    warn "python 3.11+ — required"
+  else
+    ok "$($PYBIN --version) (venv fallback)"
+    [ -d .venv ] || "$PYBIN" -m venv .venv
+    ./.venv/bin/python -m pip install --quiet --upgrade pip
+    if ./.venv/bin/python -m pip install --quiet -e ".[all]"; then ok "dependencies (pip)"
+    else warn "pip install failed — run it yourself to see why"; fi
+  fi
 fi
 
 # ── fonts ─────────────────────────────────────────────────────
@@ -102,6 +111,7 @@ if [ ${#WARN[@]} -eq 0 ]; then
   note "ready"
   echo "  ./clip                 walk through it step by step"
   echo "  ./clip <url> 6         six clips from one link"
+  echo "  ./clip --ui            the web UI"
 else
   note "installed, but ${#WARN[@]} thing(s) still need you:"
   for w in "${WARN[@]}"; do echo "  · $w"; done
